@@ -7,7 +7,7 @@ import tempfile
 # KONFIGURASI
 # ==========================
 
-API_KEY = st.secrets["5O16BkW40azXbHovpDWZ"]
+API_KEY = st.secrets["ROBOFLOW_API_KEY"]
 
 WORKFLOW_URL = (
     "https://serverless.roboflow.com/"
