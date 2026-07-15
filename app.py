@@ -1,23 +1,31 @@
 import streamlit as st
-from inference_sdk import InferenceHTTPClient
 from PIL import Image
+import requests
 import tempfile
 
 # ==========================
-# GANTI API KEY DI SINI
+# KONFIGURASI
 # ==========================
 
-API_KEY = "5O16BkW40azXbHovpDWZ"
+API_KEY = st.secrets["5O16BkW40azXbHovpDWZ"]
 
-client = InferenceHTTPClient(
-    api_url="https://serverless.roboflow.com",
-    api_key=API_KEY
+WORKFLOW_URL = (
+    "https://serverless.roboflow.com/"
+    "dindas-workspace-ksvfg/workflows/"
+    "deteksi-kesalahan-sambungan-kayi-vdeteksi-kesalahan-sambungan-kayi-2-yolo11n-t1-logic"
 )
 
-st.set_page_config(page_title="AI Deteksi Sambungan Kayu", layout="centered")
+st.set_page_config(
+    page_title="AI Deteksi Sambungan Kayu",
+    page_icon="🪵",
+    layout="centered"
+)
 
 st.title("🪵 AI Deteksi Kualitas Sambungan Kayu")
-st.write("Silakan foto atau upload sambungan kayu.")
+
+st.write(
+    "Upload foto sambungan kayu kemudian klik analisis untuk mendeteksi kualitas sambungan menggunakan Artificial Intelligence."
+)
 
 uploaded_file = st.file_uploader(
     "Pilih Foto",
@@ -28,21 +36,50 @@ if uploaded_file is not None:
 
     image = Image.open(uploaded_file)
 
-    st.image(image, caption="Foto yang diupload", use_container_width=True)
+    st.image(
+        image,
+        caption="Foto yang diupload",
+        use_container_width=True
+    )
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
-        image.save(tmp.name)
+    if st.button("Analisis"):
 
-        with st.spinner("Menganalisis..."):
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
 
-            result = client.run_workflow(
-                workspace_name="dindas-workspace-ksvfg",
-                workflow_id="deteksi-kesalahan-sambungan-kayi-vdeteksi-kesalahan-sambungan-kayi-2-yolo11n-t1-logic",
-                images={
-                    "image": tmp.name
+            image.save(tmp.name)
+
+            with open(tmp.name, "rb") as img_file:
+
+                files = {
+                    "image": img_file
                 }
-            )
 
-    st.subheader("Hasil Deteksi")
+                data = {
+                    "api_key": API_KEY
+                }
 
-    st.json(result)
+                with st.spinner("Sedang menganalisis..."):
+
+                    response = requests.post(
+                        WORKFLOW_URL,
+                        files=files,
+                        data=data
+                    )
+
+        if response.status_code == 200:
+
+            result = response.json()
+
+            st.success("Analisis selesai")
+
+            st.subheader("Hasil Deteksi")
+
+            st.json(result)
+
+        else:
+
+            st.error("Analisis gagal")
+
+            st.write("Status Code :", response.status_code)
+
+            st.code(response.text)
