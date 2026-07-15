@@ -1,7 +1,8 @@
 import streamlit as st
 from PIL import Image
 import requests
-import tempfile
+import base64
+import io
 
 # ==========================
 # KONFIGURASI
@@ -9,11 +10,7 @@ import tempfile
 
 API_KEY = st.secrets["ROBOFLOW_API_KEY"]
 
-WORKFLOW_URL = (
-    "https://serverless.roboflow.com/"
-    "dindas-workspace-ksvfg/workflows/"
-    "deteksi-kesalahan-sambungan-kayi-vdeteksi-kesalahan-sambungan-kayi-2-yolo11n-t1-logic"
-)
+URL = "https://serverless.roboflow.com/dindas-workspace-ksvfg/workflows/deteksi-kesalahan-sambungan-kayi-vdeteksi-kesalahan-sambungan-kayi-2-yolo11n-t1-logic"
 
 st.set_page_config(
     page_title="AI Deteksi Sambungan Kayu",
@@ -23,12 +20,8 @@ st.set_page_config(
 
 st.title("🪵 AI Deteksi Kualitas Sambungan Kayu")
 
-st.write(
-    "Upload foto sambungan kayu kemudian klik analisis untuk mendeteksi kualitas sambungan menggunakan Artificial Intelligence."
-)
-
 uploaded_file = st.file_uploader(
-    "Pilih Foto",
+    "Upload Foto",
     type=["jpg", "jpeg", "png"]
 )
 
@@ -36,50 +29,46 @@ if uploaded_file is not None:
 
     image = Image.open(uploaded_file)
 
-    st.image(
-        image,
-        caption="Foto yang diupload",
-        use_container_width=True
-    )
+    st.image(image, use_container_width=True)
 
     if st.button("Analisis"):
 
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
+        buffered = io.BytesIO()
 
-            image.save(tmp.name)
+        image.save(buffered, format="JPEG")
 
-            with open(tmp.name, "rb") as img_file:
+        img_base64 = base64.b64encode(buffered.getvalue()).decode()
 
-                files = {
-                    "image": img_file
+        payload = {
+            "api_key": API_KEY,
+            "inputs": {
+                "image": {
+                    "type": "base64",
+                    "value": img_base64
                 }
+            }
+        }
 
-                data = {
-                    "api_key": API_KEY
+        with st.spinner("Menganalisis..."):
+
+            response = requests.post(
+                URL,
+                json=payload,
+                headers={
+                    "Content-Type": "application/json"
                 }
+            )
 
-                with st.spinner("Sedang menganalisis..."):
-
-                    response = requests.post(
-                        WORKFLOW_URL,
-                        files=files,
-                        data=data
-                    )
+        st.write("Status:", response.status_code)
 
         if response.status_code == 200:
 
-            result = response.json()
+            st.success("Berhasil")
 
-            st.success("Analisis selesai")
-
-            st.subheader("Hasil Deteksi")
-
-            st.json(result)
+            st.json(response.json())
 
         else:
 
-            st.error("Analisis gagal")
-
-            st.write("Status Code :", response.status_code)
+            st.error("Gagal")
 
             st.code(response.text)
